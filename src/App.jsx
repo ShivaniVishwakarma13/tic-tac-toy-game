@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 
-
 // eslint-disable-next-line react/prop-types
 function Square({ value, onSquareClick }) {
   return (
@@ -10,11 +9,11 @@ function Square({ value, onSquareClick }) {
   );
 }
 
-function Popup({ winner, onClose, onRestart }) {
+function Popup({ message, onClose, onRestart }) {
   return (
     <div className="popup">
       <div className="popup-content">
-        <p>Winner: {winner}</p>
+        <p>{message}</p>
         <button onClick={onClose}>Close</button>
         <button onClick={onRestart}>Restart Game</button>
       </div>
@@ -22,66 +21,91 @@ function Popup({ winner, onClose, onRestart }) {
   );
 }
 
-
-
 export default function Board() {
-  const [squares, setSquares] = useState(Array(9).fill(null));
+  const [history, setHistory] = useState([{ squares: Array(9).fill(null) }]);
+  const [currentMove, setCurrentMove] = useState(0);
   const [xIsNext, setXIsNext] = useState(true);
-  const [winner, setWinner] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
- 
+  const [popupMessage, setPopupMessage] = useState("");
+
+  const currentSquares = history[currentMove].squares;
+  const winner = calculateWinner(currentSquares);
+  const isDraw = currentSquares.every(square => square !== null);
+
   function handleClick(i) {
-    if (squares[i] || winner) return;
+    if (currentSquares[i] || winner) return;
 
-    const nextSquares = squares.slice();
+    const nextSquares = currentSquares.slice();
     nextSquares[i] = xIsNext ? 'X' : 'O';
+    const nextHistory = history.slice(0, currentMove + 1).concat([{ squares: nextSquares }]);
 
-    setSquares(nextSquares);
+    setHistory(nextHistory);
+    setCurrentMove(nextHistory.length - 1);
     setXIsNext(!xIsNext);
 
     const calculatedWinner = calculateWinner(nextSquares);
     if (calculatedWinner) {
-      setWinner(calculatedWinner);
+      setPopupMessage(`Winner: ${calculatedWinner}`);
+      setShowPopup(true);
+    } else if (nextHistory.length === 10) {
+      setPopupMessage("It's a draw!");
       setShowPopup(true);
     }
   }
 
+  function jumpTo(move) {
+    setCurrentMove(move);
+    setXIsNext(move % 2 === 0);
+  }
+
   function handleRestartGame() {
-    setSquares(Array(9).fill(null));
+    setHistory([{ squares: Array(9).fill(null) }]);
+    setCurrentMove(0);
     setXIsNext(true);
-    setWinner(null);
     setShowPopup(false);
+    setPopupMessage("");
   }
 
   function handleClosePopup() {
     setShowPopup(false);
   }
 
-  let status = winner ? `Winner: ${winner}` : `Next player: ${xIsNext ? 'X' : 'O'}`;
+  const moves = history.map((step, move) => {
+    const description = move ? `Go to move #${move}` : 'Go to game start';
+    return (
+      <li key={move}>
+        <button onClick={() => jumpTo(move)}>{description}</button>
+      </li>
+    );
+  });
+
+  let status;
+  if (winner) {
+    status = `Winner: ${winner}`;
+  } else if (isDraw) {
+    status = "It's a draw!";
+  } else {
+    status = `Next player: ${xIsNext ? 'X' : 'O'}`;
+  }
 
   return (
     <>
-    <div className='ticTittle'> Tic-Tac-Toe Multiplayer </div>
+      <div className='ticTittle'>Tic-Tac-Toe Multiplayer</div>
       <div className="board">
-        <Square value={squares[0]} onSquareClick={() => handleClick(0)} />
-        <Square value={squares[1]} onSquareClick={() => handleClick(1)} />
-        <Square value={squares[2]} onSquareClick={() => handleClick(2)} />
-        <Square value={squares[3]} onSquareClick={() => handleClick(3)} />
-        <Square value={squares[4]} onSquareClick={() => handleClick(4)} />
-        <Square value={squares[5]} onSquareClick={() => handleClick(5)} />
-        <Square value={squares[6]} onSquareClick={() => handleClick(6)} />
-        <Square value={squares[7]} onSquareClick={() => handleClick(7)} />
-        <Square value={squares[8]} onSquareClick={() => handleClick(8)} />
+        {currentSquares.map((value, i) => (
+          <Square key={i} value={value} onSquareClick={() => handleClick(i)} />
+        ))}
       </div>
       <div className="status">{status}</div>
+      <ol>{moves}</ol>
       {showPopup && (
-        <Popup winner={winner} onClose={handleClosePopup} onRestart={handleRestartGame} />
+        <Popup message={popupMessage} onClose={handleClosePopup} onRestart={handleRestartGame} />
       )}
     </>
   );
 }
 
-function calculateWinner(squares){
+function calculateWinner(squares) {
   const lines = [
     [0, 1, 2],
     [3, 4, 5],
@@ -95,12 +119,10 @@ function calculateWinner(squares){
 
   for (let i = 0; i < lines.length; i++) {
     const [a, b, c] = lines[i];
-
     if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
       return squares[a];
     }
   }
 
-  return false;
+  return null;
 }
-
